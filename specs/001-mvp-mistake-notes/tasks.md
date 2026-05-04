@@ -190,7 +190,7 @@
 
 ## B3 · 鉴权与 Storage
 
-- [ ] T016 校对 /auth/wx-login schema 与契约
+- [X] T016 校对 /auth/wx-login schema 与契约
   - 所属批次：B3
   - 依赖：T014
   - 可并行：否
@@ -201,7 +201,7 @@
     - 自动化用例：`backend/tests/contracts/test_auth_contract.py::test_wx_login_schema_matches_openapi`
   - 风险 / 注意：openid 不得写入日志
 
-- [ ] T017 实现微信登录换 Supabase JWT service
+- [X] T017 实现微信登录换 Supabase JWT service
   - 所属批次：B3
   - 依赖：T016
   - 可并行：否
@@ -212,7 +212,7 @@
     - 自动化用例：`backend/tests/services/test_auth_service.py::test_wx_login_creates_user_with_admin_only_for_bootstrap`
   - 风险 / 注意：涉及 service_role，禁止用于业务表用户级查询
 
-- [ ] T018 实现 POST /auth/wx-login 路由
+- [X] T018 实现 POST /auth/wx-login 路由
   - 所属批次：B3
   - 依赖：T017
   - 可并行：否
@@ -223,7 +223,7 @@
     - 自动化用例：`backend/tests/api/test_auth_api.py::test_wx_login_returns_session_tokens`
   - 风险 / 注意：路由层不得直接访问数据库
 
-- [ ] T019 编写微信登录集成测试
+- [X] T019 编写微信登录集成测试
   - 所属批次：B3
   - 依赖：T018
   - 可并行：否
@@ -234,7 +234,7 @@
     - 自动化用例：`backend/tests/integration/test_auth_wx_login.py::test_wx_login_e2e_with_mock_wechat`
   - 风险 / 注意：接触用户身份数据，必须通过 RLS 双用户隔离测试
 
-- [ ] T020 实现 current_user 依赖
+- [X] T020 实现 current_user 依赖
   - 所属批次：B3
   - 依赖：T018
   - 可并行：否
@@ -245,7 +245,7 @@
     - 自动化用例：`backend/tests/test_deps.py::test_current_user_rejects_missing_token`
   - 风险 / 注意：鉴权失败不得降级为匿名业务访问
 
-- [ ] T021 校对 /uploads/sign schema 与契约
+- [X] T021 校对 /uploads/sign schema 与契约
   - 所属批次：B3
   - 依赖：T020
   - 可并行：否
@@ -257,7 +257,7 @@
     - 自动化用例：`backend/tests/contracts/test_upload_contract.py::test_upload_sign_schema_matches_openapi`
   - 风险 / 注意：签名接口必须 JWT 必填
 
-- [ ] T022 实现 Storage 签名 service
+- [X] T022 实现 Storage 签名 service
   - 所属批次：B3
   - 依赖：T021
   - 可并行：否
@@ -268,7 +268,7 @@
     - 自动化用例：`backend/tests/services/test_uploads_service.py::test_signed_object_key_is_namespaced_by_user`
   - 风险 / 注意：接触用户文件，必须通过 RLS 双用户隔离测试；bucket 默认 private
 
-- [ ] T023 实现 POST /uploads/sign 路由
+- [X] T023 实现 POST /uploads/sign 路由
   - 所属批次：B3
   - 依赖：T022
   - 可并行：否
@@ -279,7 +279,7 @@
     - 自动化用例：`backend/tests/api/test_uploads_api.py::test_upload_sign_requires_jwt`
   - 风险 / 注意：路由不得直接调用 Supabase Storage SDK
 
-- [ ] T024 编写上传与 signed GET 集成测试
+- [X] T024 编写上传与 signed GET 集成测试
   - 所属批次：B3
   - 依赖：T023
   - 可并行：否
@@ -290,7 +290,7 @@
     - 自动化用例：`backend/tests/integration/test_storage_signed_upload.py::test_upload_then_signed_get_owner_only`
   - 风险 / 注意：接触用户文件，必须通过 RLS 双用户隔离测试
 
-- [ ] T025 [P] 实现 frontend JWT 注入与 401 刷新
+- [X] T025 [P] 实现 frontend JWT 注入与 401 刷新
   - 所属批次：B3
   - 依赖：T020
   - 可并行：是 [P]
@@ -301,7 +301,7 @@
     - 自动化用例：`frontend/tests/request-auth.test.js::test_refresh_once_then_retry_original_request`
   - 风险 / 注意：frontend 只保存短期 token，不保存任何 service_role key
 
-- [ ] T026 [P] 实现 frontend 登录页
+- [X] T026 [P] 实现 frontend 登录页
   - 所属批次：B3
   - 依赖：T018, T025
   - 可并行：是 [P]
@@ -312,7 +312,7 @@
     - 自动化用例：`frontend/tests/login.test.js::test_login_page_stores_tokens_after_wx_login`
   - 风险 / 注意：不得在 frontend 存储微信 AppSecret
 
-- [ ] T026a 端到端补强 T012：用真实 A/B JWT 验证 RLS 互访
+- [X] T026a 端到端补强 T012：用真实 A/B JWT 验证 RLS 互访
   - 所属批次：B3
   - 依赖：T026
   - 可并行：否

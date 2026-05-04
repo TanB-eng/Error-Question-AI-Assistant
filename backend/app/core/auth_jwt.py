@@ -7,7 +7,7 @@ from typing import Any, Protocol, cast
 import httpx
 import jwt
 
-ALLOWED_SUPABASE_ALGORITHMS = ("ES256", "RS256")
+ALLOWED_SUPABASE_ALGORITHMS = ("HS256", "ES256", "RS256")
 DEFAULT_JWKS_TTL_SECONDS = 3600
 DEFAULT_JWKS_TIMEOUT_SECONDS = 30.0
 
@@ -18,6 +18,10 @@ class JwksFetchError(RuntimeError):
 
 class JwtValidationError(RuntimeError):
     """Raised when a Supabase JWT cannot be validated."""
+
+
+class JwtExpiredError(JwtValidationError):
+    """Raised when a Supabase JWT is expired."""
 
 
 class HttpResponse(Protocol):
@@ -90,10 +94,25 @@ def choose_jwt_algorithms(jwks: Mapping[str, object]) -> list[str]:
         alg = key.get("alg")
         if isinstance(alg, str) and alg in ALLOWED_SUPABASE_ALGORITHMS and alg not in algorithms:
             algorithms.append(alg)
+            continue
+        kty = key.get("kty")
+        fallback_alg = _algorithm_for_kty(kty)
+        if fallback_alg is not None and fallback_alg not in algorithms:
+            algorithms.append(fallback_alg)
 
     if algorithms:
         return algorithms
-    return list(ALLOWED_SUPABASE_ALGORITHMS)
+    return ["ES256", "RS256"]
+
+
+def _algorithm_for_kty(kty: object) -> str | None:
+    if kty == "oct":
+        return "HS256"
+    if kty == "EC":
+        return "ES256"
+    if kty == "RSA":
+        return "RS256"
+    return None
 
 
 def decode_supabase_jwt(
@@ -116,6 +135,8 @@ def decode_supabase_jwt(
             issuer=issuer,
             options={"verify_aud": audience is not None},
         )
+    except jwt.ExpiredSignatureError as exc:
+        raise JwtExpiredError("JWT expired") from exc
     except jwt.PyJWTError as exc:
         raise JwtValidationError("JWT validation failed") from exc
 

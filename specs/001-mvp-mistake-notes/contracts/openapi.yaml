@@ -46,6 +46,21 @@ paths:
         "502":
           $ref: '#/components/responses/ExternalServiceError'
 
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh Supabase session tokens
+      description: Requires the refresh token in the Bearer authorization header.
+      responses:
+        "200":
+          description: Refresh succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
   /uploads/sign:
     post:
       tags: [Uploads]
@@ -70,12 +85,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UploadSignResponse'
-              examples:
-                default:
-                  value:
-                    signed_url: "https://project.supabase.co/storage/v1/object/upload/sign/user-files/users/..."
-                    object_key: "users/00000000-0000-0000-0000-000000000001/mistakes/2026/05/7b6f.jpg"
-                    expires_in: 600
+                examples:
+                  default:
+                    value:
+                      signed_url: "https://project.supabase.co/storage/v1/object/upload/sign/mistakes/..."
+                      object_key: "mistake/00000000-0000-4000-8000-000000000001/7b6f.jpg"
+                      bucket: "mistakes"
+                      expires_in: 300
+                      max_size_bytes: 5242880
+                      max_pdf_pages: null
         "400":
           $ref: '#/components/responses/BadRequest'
         "401":
@@ -645,16 +663,28 @@ components:
           example: paper.pdf
     UploadSignResponse:
       type: object
-      required: [signed_url, object_key, expires_in]
+      required: [signed_url, object_key, bucket, expires_in, max_size_bytes]
       properties:
         signed_url:
           type: string
           format: uri
         object_key:
           type: string
+          pattern: "^(mistake|note)/[0-9a-fA-F-]{36}/[0-9a-fA-F-]+\\.(jpg|jpeg|png|pdf)$"
+        bucket:
+          type: string
+          enum: [mistakes, notes]
         expires_in:
           type: integer
-          example: 600
+          maximum: 300
+          example: 300
+        max_size_bytes:
+          type: integer
+          example: 5242880
+        max_pdf_pages:
+          type: integer
+          nullable: true
+          example: 20
 
     SourceType:
       type: string

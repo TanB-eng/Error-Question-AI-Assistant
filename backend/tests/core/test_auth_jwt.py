@@ -63,11 +63,11 @@ def test_jwks_cache_reuses_response_until_ttl_expires() -> None:
     [
         ({"keys": [{"alg": "ES256"}]}, ["ES256"]),
         ({"keys": [{"alg": "RS256"}]}, ["RS256"]),
-        ({"keys": [{"alg": "HS256"}, {"alg": "ES256"}]}, ["ES256"]),
-        ({"keys": [{"kty": "RSA"}]}, ["ES256", "RS256"]),
+        ({"keys": [{"alg": "HS256"}, {"alg": "ES256"}]}, ["HS256", "ES256"]),
+        ({"keys": [{"kty": "RSA"}]}, ["RS256"]),
     ],
 )
-def test_choose_jwt_algorithms_only_allows_asymmetric_supabase_algs(
+def test_choose_jwt_algorithms_uses_jwks_alg_or_kty_fallback(
     jwks: dict[str, object], expected: list[str]
 ) -> None:
     assert choose_jwt_algorithms(jwks) == expected
