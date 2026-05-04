@@ -10,12 +10,12 @@
 |---|---|---:|---|
 | B1 | 项目骨架与配置 | 8 | 是 |
 | B2 | Supabase 与数据层 | 7 | 是 |
-| B3 | 鉴权与 Storage | 11 | 是 |
+| B3 | 鉴权与 Storage | 12 | 是 |
 | B4 | 录入主链（错题） | 15 | 是 |
 | B5 | PDF 导入与笔记 | 10 | 是 |
 | B6 | 浏览、校对、软删除 | 14 | 是 |
 | B7 | 收尾与硬化 | 5 | 是 |
-| **合计** |  | **70** | 是 |
+| **合计** |  | **71** | 是 |
 
 ## B1 · 项目骨架与配置（无业务逻辑）
 
@@ -311,6 +311,17 @@
     - token 持久化后跳转 home
     - 自动化用例：`frontend/tests/login.test.js::test_login_page_stores_tokens_after_wx_login`
   - 风险 / 注意：不得在 frontend 存储微信 AppSecret
+
+- [ ] T026a 端到端补强 T012：用真实 A/B JWT 验证 RLS 互访
+  - 所属批次：B3
+  - 依赖：T026
+  - 可并行：否
+  - 涉及文件：`backend/tests/integration/test_rls_e2e.py`
+  - 完成定义（DoD）：
+    - 用 `/auth/wx-login` 真实签发 A、B 两个用户的 JWT
+    - A 的 JWT 通过 PostgREST 访问 `mistakes`、`notes`、`tags`、`ingest_sessions` 只能看到自己的行，访问 B 的 row id 返回 404 或空结果
+    - 自动化用例：`backend/tests/integration/test_rls_e2e.py::test_two_real_users_rls_isolation`
+  - 风险 / 注意：如果失败说明 JWT claim 与 RLS policy 不匹配，常见原因是 JWT 里用户标识与 `auth.uid()` 解析路径不一致；接触用户数据，必须通过真实双用户隔离测试
 
 ## B4 · 录入主链（错题，最关键）
 
