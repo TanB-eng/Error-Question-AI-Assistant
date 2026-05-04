@@ -111,7 +111,7 @@
 
 ## B2 · Supabase 与数据层
 
-- [ ] T009 编写 0001 初始化建表迁移
+- [X] T009 编写 0001 初始化建表迁移
   - 所属批次：B2
   - 依赖：T003
   - 可并行：否
@@ -122,7 +122,7 @@
     - 自动化用例：`backend/tests/db/test_migrations.py::test_0001_init_schema_applies`
   - 风险 / 注意：涉及用户数据，必须保留 UUID 主键与显式外键策略
 
-- [ ] T010 编写初始化 schema 结构测试
+- [X] T010 编写初始化 schema 结构测试
   - 所属批次：B2
   - 依赖：T009
   - 可并行：否
@@ -133,7 +133,7 @@
     - 自动化用例：`backend/tests/db/test_schema_constraints.py::test_tags_unique_normalized_name`
   - 风险 / 注意：测试必须能在本地 Supabase 或测试 Postgres 中一键运行
 
-- [ ] T011 编写 0002 RLS 策略迁移
+- [X] T011 编写 0002 RLS 策略迁移
   - 所属批次：B2
   - 依赖：T009, T010
   - 可并行：否
@@ -144,7 +144,7 @@
     - 自动化用例：`backend/tests/test_rls.py::test_all_business_tables_enable_rls`
   - 风险 / 注意：宪法红线，任何业务表不得缺 RLS
 
-- [ ] T012 编写 RLS 双用户隔离冒烟测试
+- [X] T012 编写 RLS 双用户隔离冒烟测试
   - 所属批次：B2
   - 依赖：T011
   - 可并行：否
@@ -155,7 +155,7 @@
     - 自动化用例：`backend/tests/test_rls.py::test_two_users_cannot_read_each_other_business_rows`
   - 风险 / 注意：接触用户数据，必须通过 RLS 双用户隔离测试
 
-- [ ] T013 [P] 编写 0003 学科字典种子迁移
+- [X] T013 [P] 编写 0003 学科字典种子迁移
   - 所属批次：B2
   - 依赖：T009
   - 可并行：是 [P]
@@ -166,7 +166,7 @@
     - 自动化用例：`backend/tests/db/test_subject_seed.py::test_subject_seed_is_idempotent`
   - 风险 / 注意：学科为固定字典，本期不允许用户新增
 
-- [ ] T014 [P] 实现 Supabase 两类 client
+- [X] T014 [P] 实现 Supabase 两类 client
   - 所属批次：B2
   - 依赖：T003
   - 可并行：是 [P]
@@ -177,7 +177,7 @@
     - 自动化用例：`backend/tests/core/test_supabase_client.py::test_user_client_uses_bearer_jwt`
   - 风险 / 注意：宪法红线，业务查询不得使用 service_role
 
-- [ ] T015 [P] 编写 Supabase client 使用边界测试
+- [X] T015 [P] 编写 Supabase client 使用边界测试
   - 所属批次：B2
   - 依赖：T014
   - 可并行：是 [P]

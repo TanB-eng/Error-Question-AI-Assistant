@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+!**/.env.example
 *.log
 *.tmp
 Thumbs.db
@@ -24,6 +25,7 @@ coverage/
 frontend/miniprogram_npm/
 frontend/dist/
 frontend/project.private.config.json
+supabase/.temp/
 
 # IDE
 .idea/
