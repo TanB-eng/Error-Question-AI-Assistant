@@ -325,7 +325,7 @@
 
 ## B4 · 录入主链（错题，最关键）
 
-- [ ] T027 实现 OCR 抽象接口与腾讯云实现
+- [X] T027 实现 OCR 抽象接口与腾讯云实现
   - 所属批次：B4
   - 依赖：T003
   - 可并行：否
@@ -336,7 +336,7 @@
     - 自动化用例：`backend/tests/services/test_ocr.py::test_ocr_client_retries_once_on_timeout`
   - 风险 / 注意：CI 禁止真调 OCR；用户原图不得发给 DeepSeek
 
-- [ ] T028 编写 OCR 失败降级测试
+- [X] T028 编写 OCR 失败降级测试
   - 所属批次：B4
   - 依赖：T027
   - 可并行：否
@@ -347,7 +347,7 @@
     - 自动化用例：`backend/tests/services/test_ocr_fallback.py::test_ocr_failure_allows_manual_save`
   - 风险 / 注意：涉及用户数据，不得丢失已上传 object_key
 
-- [ ] T029 实现错题分类 prompt 与 ClassifyResult schema
+- [X] T029 实现错题分类 prompt 与 ClassifyResult schema
   - 所属批次：B4
   - 依赖：T027
   - 可并行：否
@@ -358,7 +358,7 @@
     - 自动化用例：`backend/tests/schemas/test_classify_schema.py::test_classify_result_accepts_empty_strings_and_null_difficulty`
   - 风险 / 注意：Prompt 必须落盘并带版本号
 
-- [ ] T030 实现 DeepSeek 统一 client
+- [X] T030 实现 DeepSeek 统一 client
   - 所属批次：B4
   - 依赖：T029
   - 可并行：否
@@ -369,7 +369,7 @@
     - 自动化用例：`backend/tests/services/test_deepseek_client.py::test_invalid_json_retries_once`
   - 风险 / 注意：LLM 相关任务必须覆盖非法 JSON 输出走 pending 分支；CI 禁止真调 DeepSeek
 
-- [ ] T031 编写 DeepSeek 非法 JSON pending 分支测试
+- [X] T031 编写 DeepSeek 非法 JSON pending 分支测试
   - 所属批次：B4
   - 依赖：T030
   - 可并行：否
@@ -380,7 +380,7 @@
     - 自动化用例：`backend/tests/services/test_classifier.py::test_invalid_json_twice_returns_pending`
   - 风险 / 注意：宪法红线，模型结果未校验不得进入业务逻辑
 
-- [ ] T032 实现标签规范化与归并 service
+- [X] T032 实现标签规范化与归并 service
   - 所属批次：B4
   - 依赖：T009, T013
   - 可并行：否
@@ -391,7 +391,7 @@
     - 自动化用例：`backend/tests/services/test_tag_normalizer.py::test_normalize_basic_chinese_variants`
   - 风险 / 注意：接触用户标签，必须通过 RLS 双用户隔离测试
 
-- [ ] T033 编写 5 种标签写法归并测试
+- [X] T033 编写 5 种标签写法归并测试
   - 所属批次：B4
   - 依赖：T032
   - 可并行：否
@@ -402,7 +402,7 @@
     - 自动化用例：`backend/tests/services/test_tag_normalizer.py::test_five_variants_merge_to_one_user_scoped_tag`
   - 风险 / 注意：涉及用户数据，必须通过 RLS 双用户隔离测试
 
-- [ ] T034 校对 POST /mistakes/ingest schema 与契约
+- [X] T034 校对 POST /mistakes/ingest schema 与契约
   - 所属批次：B4
   - 依赖：T029
   - 可并行：否
@@ -413,7 +413,7 @@
     - 自动化用例：`backend/tests/contracts/test_mistakes_ingest_contract.py::test_mistake_ingest_schema_matches_openapi`
   - 风险 / 注意：ingest 只返回候选，不落最终业务表
 
-- [ ] T035 实现错题 ingest 编排 service
+- [X] T035 实现错题 ingest 编排 service
   - 所属批次：B4
   - 依赖：T024, T028, T031, T032, T034
   - 可并行：否
@@ -424,7 +424,7 @@
     - 自动化用例：`backend/tests/services/test_ingestion.py::test_photo_ingest_returns_ready_candidate_with_mocks`
   - 风险 / 注意：涉及用户文件，必须通过 RLS 双用户隔离测试；LLM 非法 JSON 必须走 pending
 
-- [ ] T036 实现 POST /mistakes/ingest 路由
+- [X] T036 实现 POST /mistakes/ingest 路由
   - 所属批次：B4
   - 依赖：T035
   - 可并行：否
@@ -435,7 +435,7 @@
     - 自动化用例：`backend/tests/api/test_mistakes_ingest_api.py::test_mistake_ingest_requires_jwt`
   - 风险 / 注意：路由层不得直接调用大模型
 
-- [ ] T037 编写错题 ingest 集成测试
+- [X] T037 编写错题 ingest 集成测试
   - 所属批次：B4
   - 依赖：T036
   - 可并行：否
@@ -446,7 +446,7 @@
     - 自动化用例：`backend/tests/integration/test_mistake_ingest.py::test_ingest_invalid_json_pending_branch`
   - 风险 / 注意：LLM/OCR 必须 mock；接触用户数据，必须通过 RLS 双用户隔离测试
 
-- [ ] T038 校对 POST /mistakes schema 与契约
+- [X] T038 校对 POST /mistakes schema 与契约
   - 所属批次：B4
   - 依赖：T034
   - 可并行：否
@@ -458,7 +458,7 @@
     - 自动化用例：`backend/tests/contracts/test_mistake_create_contract.py::test_mistake_create_schema_matches_openapi`
   - 风险 / 注意：最终落库必须来自用户校对字段
 
-- [ ] T039 实现错题保存与标签 upsert service
+- [X] T039 实现错题保存与标签 upsert service
   - 所属批次：B4
   - 依赖：T032, T038
   - 可并行：否
@@ -469,7 +469,7 @@
     - 自动化用例：`backend/tests/services/test_mistakes_create.py::test_create_mistake_upserts_normalized_tags`
   - 风险 / 注意：接触用户数据，必须通过 RLS 双用户隔离测试
 
-- [ ] T040 实现 POST /mistakes 路由
+- [X] T040 实现 POST /mistakes 路由
   - 所属批次：B4
   - 依赖：T039
   - 可并行：否
@@ -480,7 +480,7 @@
     - 自动化用例：`backend/tests/api/test_mistakes_create_api.py::test_create_mistake_returns_detail`
   - 风险 / 注意：路由层不得直接访问数据库
 
-- [ ] T041 编写错题保存端到端集成测试
+- [X] T041 编写错题保存端到端集成测试
   - 所属批次：B4
   - 依赖：T040
   - 可并行：否
@@ -488,6 +488,7 @@
   - 完成定义（DoD）：
     - OCR 失败后仍可手填并保存
     - 标签 5 种写法归并为 1 个标签
+    - 创建阶段拒绝跨用户 object_key
     - 自动化用例：`backend/tests/integration/test_mistake_create_e2e.py::test_ocr_failure_manual_save_and_tag_merge`
   - 风险 / 注意：接触用户数据，必须通过 RLS 双用户隔离测试
 

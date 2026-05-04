@@ -2,10 +2,12 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.api.auth import router as auth_router
+from app.api.mistakes import router as mistakes_router
 from app.api.uploads import router as uploads_router
 
 app = FastAPI(title="Mistake Note AI Assistant")
 app.include_router(auth_router)
+app.include_router(mistakes_router)
 app.include_router(uploads_router)
 
 
