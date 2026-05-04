@@ -67,3 +67,45 @@ def test_invalid_json_retries_once() -> None:
     assert audit.records[-1].schema_hit is True
     assert audit.records[-1].retry_count == 1
     assert audit.records[-1].prompt_version == "classify_mistake_v1"
+
+
+@respx.mock
+def test_note_classification_uses_note_prompt() -> None:
+    audit = MemoryAuditSink()
+    client = DeepSeekClient(
+        api_key="deepseek-test-key",
+        base_url="https://deepseek.local",
+        model="deepseek-chat",
+        audit_sink=audit,
+    )
+    route = respx.post("https://deepseek.local/chat/completions").mock(
+        return_value=Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"subject":"math","content":"organized note",'
+                                '"knowledge_points":["vertex form"]}'
+                            )
+                        }
+                    }
+                ],
+                "usage": {"prompt_tokens": 7, "completion_tokens": 5},
+            },
+        )
+    )
+
+    result = client.classify_note_text(
+        user_id="00000000-0000-4000-8000-000000000001",
+        ingest_session_id="00000000-0000-4000-8000-000000000002",
+        ocr_text="raw note text",
+    )
+
+    assert result.content == "organized note"
+    assert result.knowledge_points == ["vertex form"]
+    assert route.call_count == 1
+    request_payload = route.calls[0].request.content.decode("utf-8")
+    assert "classify_note_v1" in request_payload
+    assert audit.records[-1].prompt_version == "classify_note_v1"

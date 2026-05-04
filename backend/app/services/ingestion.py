@@ -22,6 +22,7 @@ from app.schemas.uploads import (
 )
 from app.services.classifier import ClassificationOutcome
 from app.services.ocr import OCRInput, OCRService
+from app.services.pdf import PDFProcessingError, PDFQuestionSplitter
 
 BUCKET_BY_SCENE = {"mistake": "mistakes", "note": "notes"}
 
@@ -49,6 +50,7 @@ class IngestSessionRepository(Protocol):
         self,
         *,
         user_id: str,
+        scene: str,
         source_type: str,
         subject_id: int,
         object_key: str,
@@ -84,6 +86,7 @@ class InMemoryIngestSessionRepository:
         self,
         *,
         user_id: str,
+        scene: str,
         source_type: str,
         subject_id: int,
         object_key: str,
@@ -92,7 +95,7 @@ class InMemoryIngestSessionRepository:
         session_id = str(uuid4())
         self.sessions[session_id] = {
             "user_id": user_id,
-            "scene": "mistake",
+            "scene": scene,
             "source_type": source_type,
             "subject_id": subject_id,
             "object_key": object_key,
@@ -131,6 +134,7 @@ class SupabaseIngestSessionRepository:
         self,
         *,
         user_id: str,
+        scene: str,
         source_type: str,
         subject_id: int,
         object_key: str,
@@ -142,7 +146,7 @@ class SupabaseIngestSessionRepository:
             headers={"Prefer": "return=representation"},
             json={
                 "user_id": user_id,
-                "scene": "mistake",
+                "scene": scene,
                 "source_type": source_type,
                 "subject_id": subject_id,
                 "object_key": object_key,
@@ -226,11 +230,13 @@ class IngestionService:
         session_repository: IngestSessionRepository,
         ocr_service: OCRService,
         classifier: MistakeClassifier,
+        pdf_splitter: PDFQuestionSplitter | None = None,
     ) -> None:
         self._file_store = file_store
         self._session_repository = session_repository
         self._ocr_service = ocr_service
         self._classifier = classifier
+        self._pdf_splitter = pdf_splitter if pdf_splitter is not None else PDFQuestionSplitter()
 
     def ingest_mistake(
         self, *, user_id: str, request: MistakeIngestRequest
@@ -244,6 +250,7 @@ class IngestionService:
         if stored_object.mime_type not in SUPPORTED_UPLOAD_MIME_TYPES:
             session_id = self._session_repository.create_session(
                 user_id=user_id,
+                scene="mistake",
                 source_type=request.source_type.value,
                 subject_id=request.subject_id,
                 object_key=request.object_key,
@@ -260,6 +267,7 @@ class IngestionService:
 
         session_id = self._session_repository.create_session(
             user_id=user_id,
+            scene="mistake",
             source_type=request.source_type.value,
             subject_id=request.subject_id,
             object_key=request.object_key,
@@ -274,6 +282,14 @@ class IngestionService:
                 candidates=[],
                 error_code=ErrorCode.UPLOAD_LIMIT_EXCEEDED,
                 session_status="failed",
+            )
+
+        if request.source_type.value == "pdf":
+            return self._ingest_pdf(
+                user_id=user_id,
+                request=request,
+                session_id=session_id,
+                stored_object=stored_object,
             )
 
         ocr_result = self._ocr_service.recognize(
@@ -299,7 +315,12 @@ class IngestionService:
             ocr_text=ocr_result.text,
         )
         if classification.status == "pending_classification" or classification.result is None:
-            candidate = _manual_candidate(subject_id=request.subject_id, question=ocr_result.text)
+            candidate = _manual_candidate(
+                subject_id=request.subject_id,
+                question=ocr_result.text,
+                status=IngestStatus.PENDING_CLASSIFICATION,
+                error_code=classification.error_code,
+            )
             return self._finish(
                 session_id=session_id,
                 status=IngestStatus.PENDING_CLASSIFICATION,
@@ -327,6 +348,77 @@ class IngestionService:
             candidates=[candidate],
             error_code=None,
             session_status="classified",
+        )
+
+    def _ingest_pdf(
+        self,
+        *,
+        user_id: str,
+        request: MistakeIngestRequest,
+        session_id: str,
+        stored_object: StoredObject,
+    ) -> MistakeIngestResponse:
+        try:
+            pdf_result = self._pdf_splitter.extract_questions(stored_object.content)
+        except PDFProcessingError as exc:
+            return self._finish(
+                session_id=session_id,
+                status=IngestStatus.OCR_FAILED,
+                ocr_text="",
+                candidates=[],
+                error_code=exc.error_code,
+                session_status="failed",
+            )
+
+        candidates: list[MistakeCandidate] = []
+        has_pending = False
+        for question_candidate in pdf_result.candidates:
+            classification = self._classifier.classify(
+                user_id=user_id,
+                ingest_session_id=session_id,
+                ocr_text=question_candidate.question_text,
+            )
+            if classification.status == "pending_classification" or classification.result is None:
+                has_pending = True
+                candidates.append(
+                    _manual_candidate(
+                        subject_id=request.subject_id,
+                        question=question_candidate.question_text,
+                        page_number=question_candidate.page_number,
+                        status=IngestStatus.PENDING_CLASSIFICATION,
+                        error_code=classification.error_code,
+                    )
+                )
+                continue
+
+            result = classification.result
+            candidates.append(
+                MistakeCandidate(
+                    subject_id=request.subject_id,
+                    status=IngestStatus.READY,
+                    question=result.question,
+                    my_answer=result.my_answer,
+                    correct_answer=result.correct_answer,
+                    knowledge_points=result.knowledge_points,
+                    question_type=result.question_type,
+                    difficulty=result.difficulty,
+                    error_cause=result.error_cause,
+                    analysis=result.analysis,
+                    page_number=question_candidate.page_number,
+                    error_code=None,
+                )
+            )
+
+        response_status = (
+            IngestStatus.PENDING_CLASSIFICATION if has_pending else IngestStatus.READY
+        )
+        return self._finish(
+            session_id=session_id,
+            status=response_status,
+            ocr_text=pdf_result.text,
+            candidates=candidates,
+            error_code=ErrorCode.LLM_SCHEMA_INVALID if has_pending else None,
+            session_status="pending" if has_pending else "classified",
         )
 
     def _finish(
@@ -359,9 +451,17 @@ class IngestionService:
         )
 
 
-def _manual_candidate(*, subject_id: int, question: str) -> MistakeCandidate:
+def _manual_candidate(
+    *,
+    subject_id: int,
+    question: str,
+    page_number: int | None = None,
+    status: IngestStatus = IngestStatus.READY,
+    error_code: ErrorCode | None = None,
+) -> MistakeCandidate:
     return MistakeCandidate(
         subject_id=subject_id,
+        status=status,
         question=question,
         my_answer="",
         correct_answer="",
@@ -370,6 +470,8 @@ def _manual_candidate(*, subject_id: int, question: str) -> MistakeCandidate:
         difficulty=None,
         error_cause="",
         analysis="",
+        page_number=page_number,
+        error_code=error_code,
     )
 
 

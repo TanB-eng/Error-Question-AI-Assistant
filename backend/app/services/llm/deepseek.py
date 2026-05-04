@@ -6,7 +6,7 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 import httpx
 from pydantic import ValidationError
@@ -14,9 +14,12 @@ from pydantic import ValidationError
 from app.core.supabase import SupabaseRestClient
 from app.errors import ErrorCode
 from app.schemas.classify import ClassifyResult
+from app.schemas.notes import NoteClassifyResult
 
 PROMPT_NAME = "classify_mistake"
 PROMPT_VERSION = "classify_mistake_v1"
+NOTE_PROMPT_NAME = "classify_note"
+NOTE_PROMPT_VERSION = "classify_note_v1"
 MAX_TOKENS = 1500
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_USER_RATE_LIMIT_PER_MINUTE = 20
@@ -124,10 +127,56 @@ class DeepSeekClient:
         ingest_session_id: str | None,
         ocr_text: str,
     ) -> ClassifyResult:
+        return cast(
+            ClassifyResult,
+            self._classify_text(
+                user_id=user_id,
+                ingest_session_id=ingest_session_id,
+                ocr_text=ocr_text,
+                prompt_name=PROMPT_NAME,
+                prompt_version=PROMPT_VERSION,
+                prompt=_load_prompt("classify_mistake_v1.md"),
+                schema=ClassifyResult,
+            ),
+        )
+
+    def classify_note_text(
+        self,
+        *,
+        user_id: str,
+        ingest_session_id: str | None,
+        ocr_text: str,
+    ) -> NoteClassifyResult:
+        return cast(
+            NoteClassifyResult,
+            self._classify_text(
+                user_id=user_id,
+                ingest_session_id=ingest_session_id,
+                ocr_text=ocr_text,
+                prompt_name=NOTE_PROMPT_NAME,
+                prompt_version=NOTE_PROMPT_VERSION,
+                prompt=_load_prompt("classify_note_v1.md"),
+                schema=NoteClassifyResult,
+            ),
+        )
+
+    def _classify_text(
+        self,
+        *,
+        user_id: str,
+        ingest_session_id: str | None,
+        ocr_text: str,
+        prompt_name: str,
+        prompt_version: str,
+        prompt: str,
+        schema: type[ClassifyResult] | type[NoteClassifyResult],
+    ) -> ClassifyResult | NoteClassifyResult:
         if not self._rate_limiter.allow(user_id):
             self._audit_failure(
                 user_id=user_id,
                 ingest_session_id=ingest_session_id,
+                prompt_name=prompt_name,
+                prompt_version=prompt_version,
                 latency_ms=0,
                 retry_count=0,
                 error_code=ErrorCode.RATE_LIMIT_EXCEEDED,
@@ -135,7 +184,6 @@ class DeepSeekClient:
             raise LLMClassificationError(ErrorCode.RATE_LIMIT_EXCEEDED)
 
         started = time.perf_counter()
-        prompt = _load_prompt()
         last_input_tokens = 0
         last_output_tokens = 0
         for retry_count in range(2):
@@ -162,12 +210,12 @@ class DeepSeekClient:
             last_output_tokens = _token_count(payload, "completion_tokens")
             content = _message_content(payload)
             try:
-                result = ClassifyResult.model_validate(json.loads(_strip_markdown_fence(content)))
+                result = schema.model_validate(json.loads(_strip_markdown_fence(content)))
                 self._audit_sink.record_llm_call(
                     LLMCallRecord(
                         user_id=user_id,
-                        prompt_name=PROMPT_NAME,
-                        prompt_version=PROMPT_VERSION,
+                        prompt_name=prompt_name,
+                        prompt_version=prompt_version,
                         model=self._model,
                         input_tokens=last_input_tokens,
                         output_tokens=last_output_tokens,
@@ -183,8 +231,8 @@ class DeepSeekClient:
                     self._audit_sink.record_llm_call(
                         LLMCallRecord(
                             user_id=user_id,
-                            prompt_name=PROMPT_NAME,
-                            prompt_version=PROMPT_VERSION,
+                            prompt_name=prompt_name,
+                            prompt_version=prompt_version,
                             model=self._model,
                             input_tokens=last_input_tokens,
                             output_tokens=last_output_tokens,
@@ -203,6 +251,8 @@ class DeepSeekClient:
         *,
         user_id: str,
         ingest_session_id: str | None,
+        prompt_name: str,
+        prompt_version: str,
         latency_ms: int,
         retry_count: int,
         error_code: ErrorCode,
@@ -210,8 +260,8 @@ class DeepSeekClient:
         self._audit_sink.record_llm_call(
             LLMCallRecord(
                 user_id=user_id,
-                prompt_name=PROMPT_NAME,
-                prompt_version=PROMPT_VERSION,
+                prompt_name=prompt_name,
+                prompt_version=prompt_version,
                 model=self._model,
                 input_tokens=0,
                 output_tokens=0,
@@ -224,11 +274,11 @@ class DeepSeekClient:
         )
 
 
-def _load_prompt() -> str:
+def _load_prompt(filename: str) -> str:
     return (
         Path(__file__).resolve().parents[1]
         / "prompts"
-        / "classify_mistake_v1.md"
+        / filename
     ).read_text(encoding="utf-8")
 
 

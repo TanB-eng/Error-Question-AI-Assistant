@@ -9,6 +9,7 @@ dependencies = [
     "PyJWT[crypto]>=2.10.0",
     "pydantic-settings>=2.6.0",
     "uvicorn>=0.32.0",
+    "pypdf>=6.10.2",
 ]
 
 [dependency-groups]
@@ -16,13 +17,18 @@ dev = [
     "mypy>=1.13.0",
     "pre-commit>=4.0.0",
     "pytest>=8.3.0",
+    "reportlab>=4.5.0",
     "respx>=0.23.1",
     "ruff>=0.7.0",
 ]
 
 [tool.pytest.ini_options]
+addopts = "-m 'not manual_smoke'"
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "manual_smoke: tests that use user-provided fixture files and are not run in CI",
+]
 
 [tool.ruff]
 line-length = 100

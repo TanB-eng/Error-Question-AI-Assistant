@@ -587,6 +587,8 @@ components:
         - VALIDATION_ERROR
         - UPLOAD_UNSUPPORTED_TYPE
         - UPLOAD_LIMIT_EXCEEDED
+        - PDF_PARSE_FAILED
+        - PDF_TEXT_EXTRACTION_FAILED
         - UNSUPPORTED_MIME_TYPE
         - OCR_FAILED
         - LLM_SCHEMA_INVALID
@@ -756,6 +758,7 @@ components:
       type: object
       required:
         - subject_id
+        - status
         - question
         - my_answer
         - correct_answer
@@ -768,6 +771,8 @@ components:
         subject_id:
           type: integer
           example: 1
+        status:
+          $ref: '#/components/schemas/IngestStatus'
         question:
           type: string
           example: 已知二次函数...
@@ -799,6 +804,9 @@ components:
           example: 应先化为顶点式...
         page_number:
           type: integer
+          nullable: true
+        error_code:
+          $ref: '#/components/schemas/ErrorCode'
           nullable: true
 
     MistakeIngestRequest:

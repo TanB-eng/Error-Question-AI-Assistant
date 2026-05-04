@@ -494,7 +494,7 @@
 
 ## B5 · PDF 导入与笔记
 
-- [ ] T042 实现 PDF 文本提取与规则切分 service
+- [X] T042 实现 PDF 文本提取与规则切分 service
   - 所属批次：B5
   - 依赖：T027, T035
   - 可并行：否
@@ -505,7 +505,7 @@
     - 自动化用例：`backend/tests/services/test_pdf_split.py::test_pdf_split_returns_multiple_candidates`
   - 风险 / 注意：CI 禁止真调 OCR；复杂切分留扩展点
 
-- [ ] T043 编写 PDF 多题切分测试
+- [X] T043 编写 PDF 多题切分测试
   - 所属批次：B5
   - 依赖：T042
   - 可并行：否
@@ -516,18 +516,18 @@
     - 自动化用例：`backend/tests/services/test_pdf_split.py::test_pdf_over_limit_returns_upload_limit_error`
   - 风险 / 注意：测试 fixture 不得包含真实学生数据
 
-- [ ] T044 扩展 /mistakes/ingest 支持 PDF
+- [X] T044 扩展 /mistakes/ingest 支持 PDF
   - 所属批次：B5
   - 依赖：T042, T043
   - 可并行：否
   - 涉及文件：`backend/app/services/ingestion.py`, `backend/app/api/mistakes.py`, `backend/tests/integration/test_mistake_ingest_pdf.py`
   - 完成定义（DoD）：
     - `source_type=pdf` 返回多题候选
-    - 用户只勾选的候选进入后续保存
+    - 每个候选独立携带 ready/pending 状态，前端可只勾选需要保存的候选
     - 自动化用例：`backend/tests/integration/test_mistake_ingest_pdf.py::test_pdf_ingest_returns_multiple_review_candidates`
   - 风险 / 注意：接触用户文件，必须通过 RLS 双用户隔离测试；OCR/LLM 必须 mock
 
-- [ ] T045 校对 /notes/ingest 与 notes CRUD schema 契约
+- [X] T045 校对 /notes/ingest 与 notes CRUD schema 契约
   - 所属批次：B5
   - 依赖：T038
   - 可并行：否
@@ -538,7 +538,7 @@
     - 自动化用例：`backend/tests/contracts/test_notes_contract.py::test_note_schemas_match_openapi`
   - 风险 / 注意：所有接口 JWT 必填
 
-- [ ] T046 实现笔记 ingest service
+- [X] T046 实现笔记 ingest service
   - 所属批次：B5
   - 依赖：T029, T035, T045
   - 可并行：否
@@ -550,7 +550,7 @@
     - 自动化用例：`backend/tests/services/test_note_ingest.py::test_note_invalid_json_twice_returns_pending`
   - 风险 / 注意：LLM 相关任务必须覆盖非法 JSON 输出走 pending 分支
 
-- [ ] T047 实现 POST /notes/ingest 路由
+- [X] T047 实现 POST /notes/ingest 路由
   - 所属批次：B5
   - 依赖：T046
   - 可并行：否
@@ -561,7 +561,7 @@
     - 自动化用例：`backend/tests/api/test_notes_ingest_api.py::test_note_ingest_requires_jwt`
   - 风险 / 注意：路由层不得直接调用 OCR/LLM
 
-- [ ] T048 编写笔记 ingest 集成测试
+- [X] T048 编写笔记 ingest 集成测试
   - 所属批次：B5
   - 依赖：T047
   - 可并行：否
@@ -569,10 +569,11 @@
   - 完成定义（DoD）：
     - mock OCR + mock DeepSeek 返回笔记候选
     - 非法 JSON 走 pending 分支
+    - 覆盖图片/PDF ready、pending、retry 成功、越权、mime/大小/页数/无文本层失败矩阵
     - 自动化用例：`backend/tests/integration/test_note_ingest.py::test_note_ingest_e2e_with_invalid_json_pending`
   - 风险 / 注意：LLM/OCR 必须 mock；接触用户数据，必须通过 RLS 双用户隔离测试
 
-- [ ] T049 实现 POST /notes 保存接口
+- [X] T049 实现 POST /notes 保存接口
   - 所属批次：B5
   - 依赖：T045, T046
   - 可并行：否
@@ -583,7 +584,7 @@
     - 自动化用例：`backend/tests/api/test_notes_create_api.py::test_create_note_upserts_knowledge_tags`
   - 风险 / 注意：接触用户数据，必须通过 RLS 双用户隔离测试
 
-- [ ] T050 [P] 实现 GET/PATCH/DELETE /notes 基础接口
+- [X] T050 [P] 实现 GET/PATCH/DELETE /notes 基础接口
   - 所属批次：B5
   - 依赖：T045, T049
   - 可并行：是 [P]
@@ -594,7 +595,7 @@
     - 自动化用例：`backend/tests/api/test_notes_crud_api.py::test_note_soft_delete_hides_from_active_list`
   - 风险 / 注意：接触用户数据，必须通过 RLS 双用户隔离测试
 
-- [ ] T051 [P] 编写笔记端到端测试
+- [X] T051 [P] 编写笔记端到端测试
   - 所属批次：B5
   - 依赖：T048, T049, T050
   - 可并行：是 [P]

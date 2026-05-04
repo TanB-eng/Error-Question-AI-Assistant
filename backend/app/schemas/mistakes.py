@@ -51,6 +51,7 @@ class Tag(BaseModel):
 
 class MistakeCandidate(BaseModel):
     subject_id: int
+    status: IngestStatus = IngestStatus.READY
     question: str
     my_answer: str = ""
     correct_answer: str = ""
@@ -60,6 +61,7 @@ class MistakeCandidate(BaseModel):
     error_cause: str = ""
     analysis: str = ""
     page_number: int | None = None
+    error_code: ErrorCode | None = None
 
 
 class MistakeIngestRequest(BaseModel):
