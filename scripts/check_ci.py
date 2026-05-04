@@ -14,3 +14,11 @@ def test_ci_contains_required_jobs() -> None:
 
     for token in required:
         assert token in workflow
+
+
+def test_gitleaks_self_test_expects_detection_exit_code() -> None:
+    workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "--exit-code 42" in workflow
+    assert "status=$?" in workflow
+    assert 'if [ "$status" -ne 42 ]; then' in workflow

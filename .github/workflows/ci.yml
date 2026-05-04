@@ -35,5 +35,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: gitleaks self-test fixture
         run: |
-          echo "sk-testfixture000000000000000000000000" > /tmp/fake-secret.txt
-          gitleaks detect --no-git --source /tmp --redact --exit-code 1
+          fixture_dir="$(mktemp -d)"
+          echo "sk-testfixture000000000000000000000000" > "$fixture_dir/fake-secret.txt"
+          set +e
+          gitleaks detect --no-git --source "$fixture_dir" --redact --exit-code 42
+          status=$?
+          set -e
+          rm -rf "$fixture_dir"
+          if [ "$status" -ne 42 ]; then
+            echo "Expected gitleaks self-test fixture to be detected."
+            exit 1
+          fi
