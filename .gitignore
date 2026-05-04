@@ -1,0 +1,30 @@
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+Thumbs.db
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Node / frontend
+node_modules/
+coverage/
+frontend/miniprogram_npm/
+frontend/dist/
+frontend/project.private.config.json
+
+# IDE
+.idea/
+.vscode/

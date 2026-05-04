@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: cd backend && uv sync
+      - run: cd backend && uv run ruff check .
+      - run: cd backend && uv run mypy app --strict
+      - run: cd backend && uv run pytest
+      - run: python scripts/check_no_raw_getenv.py
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: cd frontend && npm test
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: gitleaks self-test fixture
+        run: |
+          echo "sk-testfixture000000000000000000000000" > /tmp/fake-secret.txt
+          gitleaks detect --no-git --source /tmp --redact --exit-code 1

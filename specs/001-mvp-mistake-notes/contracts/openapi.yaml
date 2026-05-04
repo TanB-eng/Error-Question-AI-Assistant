@@ -1,0 +1,1094 @@
+openapi: 3.1.0
+info:
+  title: 错题与笔记智能辅导 MVP API
+  version: 1.0.0
+  description: >
+    API contract for the frontend MVP. All business endpoints require
+    Bearer JWT except /auth/wx-login.
+servers:
+  - url: http://localhost:8000
+    description: Local development
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: Uploads
+  - name: Mistakes
+  - name: Notes
+  - name: Tags
+  - name: Subjects
+  - name: TodayReview
+paths:
+  /auth/wx-login:
+    post:
+      tags: [Auth]
+      summary: Exchange WeChat login code for Supabase session tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WxLoginRequest'
+            examples:
+              default:
+                value:
+                  code: "081abc..."
+      responses:
+        "200":
+          description: Login succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "502":
+          $ref: '#/components/responses/ExternalServiceError'
+
+  /uploads/sign:
+    post:
+      tags: [Uploads]
+      summary: Create a private Supabase Storage signed PUT URL
+      description: JWT required. The backend signs the URL; the frontend uploads directly to Storage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadSignRequest'
+            examples:
+              mistakePhoto:
+                value:
+                  mime_type: image/jpeg
+                  scene: mistake
+                  filename: photo.jpg
+      responses:
+        "200":
+          description: Signed upload URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSignResponse'
+              examples:
+                default:
+                  value:
+                    signed_url: "https://project.supabase.co/storage/v1/object/upload/sign/user-files/users/..."
+                    object_key: "users/00000000-0000-0000-0000-000000000001/mistakes/2026/05/7b6f.jpg"
+                    expires_in: 600
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /mistakes/ingest:
+    post:
+      tags: [Mistakes]
+      summary: OCR and classify uploaded mistake file, returning candidates only
+      description: >
+        JWT required. Does not persist final mistake rows. The service pulls the private object,
+        runs OCR, calls DeepSeek, validates JSON, audits llm_calls, and returns review candidates.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MistakeIngestRequest'
+            examples:
+              photo:
+                value:
+                  object_key: "users/me/mistakes/2026/05/a.jpg"
+                  source_type: photo
+                  subject_id: 1
+      responses:
+        "200":
+          description: Candidate result for review page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MistakeIngestResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "502":
+          $ref: '#/components/responses/ExternalServiceError'
+
+  /mistakes:
+    post:
+      tags: [Mistakes]
+      summary: Persist a user-reviewed mistake
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MistakeCreateRequest'
+      responses:
+        "201":
+          description: Created mistake
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MistakeDetail'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      tags: [Mistakes]
+      summary: List mistakes for current user
+      parameters:
+        - $ref: '#/components/parameters/SubjectId'
+        - $ref: '#/components/parameters/TagId'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, pending, trashed]
+          description: active excludes soft-deleted rows; trashed returns deleted rows within recovery window.
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: Paginated mistake list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MistakeListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /mistakes/{id}:
+    get:
+      tags: [Mistakes]
+      summary: Get mistake detail owned by current user
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        "200":
+          description: Mistake detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MistakeDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Mistakes]
+      summary: Update reviewed mistake fields and tags
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MistakeUpdateRequest'
+      responses:
+        "200":
+          description: Updated mistake
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MistakeDetail'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Mistakes]
+      summary: Soft delete a mistake
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        "204":
+          description: Soft deleted
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /mistakes/{id}/restore:
+    post:
+      tags: [Mistakes]
+      summary: Restore a soft-deleted mistake within 7 days
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        "200":
+          description: Restored mistake
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MistakeDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          $ref: '#/components/responses/Conflict'
+
+  /notes/ingest:
+    post:
+      tags: [Notes]
+      summary: OCR and classify uploaded note file, returning candidates only
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteIngestRequest'
+      responses:
+        "200":
+          description: Note candidate for review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteIngestResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "502":
+          $ref: '#/components/responses/ExternalServiceError'
+
+  /notes:
+    post:
+      tags: [Notes]
+      summary: Persist a user-reviewed note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteCreateRequest'
+      responses:
+        "201":
+          description: Created note
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteDetail'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      tags: [Notes]
+      summary: List notes for current user
+      parameters:
+        - $ref: '#/components/parameters/SubjectId'
+        - $ref: '#/components/parameters/TagId'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, pending, trashed]
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: Paginated note list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /notes/{id}:
+    get:
+      tags: [Notes]
+      summary: Get note detail owned by current user
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        "200":
+          description: Note detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Notes]
+      summary: Update reviewed note fields and tags
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteUpdateRequest'
+      responses:
+        "200":
+          description: Updated note
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteDetail'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Notes]
+      summary: Soft delete a note
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        "204":
+          description: Soft deleted
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /notes/{id}/restore:
+    post:
+      tags: [Notes]
+      summary: Restore a soft-deleted note within 7 days
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        "200":
+          description: Restored note
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          $ref: '#/components/responses/Conflict'
+
+  /tags:
+    get:
+      tags: [Tags]
+      summary: List current user's tags with aggregate counts
+      parameters:
+        - $ref: '#/components/parameters/SubjectIdRequired'
+        - name: kind
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TagKind'
+      responses:
+        "200":
+          description: Tags with counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TagWithCount'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /subjects:
+    get:
+      tags: [Subjects]
+      summary: List fixed subject dictionary
+      responses:
+        "200":
+          description: Subjects
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Subject'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /today-review:
+    get:
+      tags: [TodayReview]
+      summary: List recent unopened mistakes for today's review placeholder
+      description: Returns active mistakes created within 7 days and not reopened by the user.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: Today's review list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MistakeListResponse'
+              examples:
+                empty:
+                  value:
+                    items: []
+                    page: 1
+                    page_size: 20
+                    total: 0
+                    empty_state:
+                      title: 今天没有待复习错题
+                      actions:
+                        - label: 去录入错题
+                          target: capture
+                        - label: 查看全部错题
+                          target: mistake_list
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SubjectId:
+      name: subject_id
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+    SubjectIdRequired:
+      name: subject_id
+      in: query
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    TagId:
+      name: tag_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            unsupportedType:
+              value:
+                error:
+                  code: UPLOAD_UNSUPPORTED_TYPE
+                  message: 文件格式不支持
+                  request_id: req_123
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            authRequired:
+              value:
+                error:
+                  code: AUTH_REQUIRED
+                  message: 请先登录
+                  request_id: req_123
+    NotFound:
+      description: Resource not found or not owned by current user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: State conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            restoreExpired:
+              value:
+                error:
+                  code: RESTORE_WINDOW_EXPIRED
+                  message: 已超过可恢复期限
+                  request_id: req_123
+    ExternalServiceError:
+      description: External OCR/LLM/WeChat dependency failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorCode:
+      type: string
+      enum:
+        - AUTH_REQUIRED
+        - TOKEN_EXPIRED
+        - FORBIDDEN
+        - NOT_FOUND
+        - VALIDATION_ERROR
+        - UPLOAD_UNSUPPORTED_TYPE
+        - UPLOAD_LIMIT_EXCEEDED
+        - OCR_FAILED
+        - LLM_SCHEMA_INVALID
+        - EXTERNAL_SERVICE_ERROR
+        - RESTORE_WINDOW_EXPIRED
+        - INTERNAL_ERROR
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+              example: 请求无效
+            request_id:
+              type: string
+              example: req_123
+            details:
+              type: object
+              additionalProperties: true
+
+    WxLoginRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          example: "081abc..."
+    AuthSessionResponse:
+      type: object
+      required: [access_token, refresh_token, expires_in, user_profile]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+          example: 3600
+        user_profile:
+          $ref: '#/components/schemas/UserProfile'
+    UserProfile:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+
+    UploadScene:
+      type: string
+      enum: [mistake, note]
+    UploadSignRequest:
+      type: object
+      required: [mime_type, scene]
+      properties:
+        mime_type:
+          type: string
+          enum: [image/jpeg, image/png, application/pdf]
+        scene:
+          $ref: '#/components/schemas/UploadScene'
+        filename:
+          type: string
+          example: paper.pdf
+    UploadSignResponse:
+      type: object
+      required: [signed_url, object_key, expires_in]
+      properties:
+        signed_url:
+          type: string
+          format: uri
+        object_key:
+          type: string
+        expires_in:
+          type: integer
+          example: 600
+
+    SourceType:
+      type: string
+      enum: [photo, pdf]
+    ItemStatus:
+      type: string
+      enum: [active, pending]
+    AnswerStatus:
+      type: string
+      enum: [unreviewed, corrected, pending]
+    IngestStatus:
+      type: string
+      enum: [ready, pending_ocr, pending_classification]
+    TagKind:
+      type: string
+      enum: [knowledge_point, question_type, error_cause]
+
+    Subject:
+      type: object
+      required: [id, code, name]
+      properties:
+        id:
+          type: integer
+          example: 1
+        code:
+          type: string
+          example: math
+        name:
+          type: string
+          example: 数学
+
+    TagInput:
+      type: object
+      required: [kind, name]
+      properties:
+        kind:
+          $ref: '#/components/schemas/TagKind'
+        name:
+          type: string
+          example: 二次函数顶点式
+    Tag:
+      allOf:
+        - $ref: '#/components/schemas/TagInput'
+        - type: object
+          required: [id, normalized_name]
+          properties:
+            id:
+              type: string
+              format: uuid
+            normalized_name:
+              type: string
+              example: 顶点式
+    TagWithCount:
+      allOf:
+        - $ref: '#/components/schemas/Tag'
+        - type: object
+          required: [mistake_count]
+          properties:
+            mistake_count:
+              type: integer
+              minimum: 0
+              example: 10
+
+    MistakeCandidate:
+      type: object
+      required:
+        - subject_id
+        - question
+        - my_answer
+        - correct_answer
+        - knowledge_points
+        - question_type
+        - difficulty
+        - error_cause
+        - analysis
+      properties:
+        subject_id:
+          type: integer
+          example: 1
+        question:
+          type: string
+          example: 已知二次函数...
+        my_answer:
+          type: string
+          example: x=1
+        correct_answer:
+          type: string
+          example: x=2
+        knowledge_points:
+          type: array
+          items:
+            type: string
+          example: [二次函数顶点式]
+        question_type:
+          type: string
+          example: 选择题
+        difficulty:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+          example: 3
+        error_cause:
+          type: string
+          example: 公式记忆错误
+        analysis:
+          type: string
+          example: 应先化为顶点式...
+        page_number:
+          type: integer
+          nullable: true
+
+    MistakeIngestRequest:
+      type: object
+      required: [object_key, source_type, subject_id]
+      properties:
+        object_key:
+          type: string
+        source_type:
+          $ref: '#/components/schemas/SourceType'
+        subject_id:
+          type: integer
+          description: Required because the user must choose subject before upload.
+    MistakeIngestResponse:
+      type: object
+      required: [session_id, status, ocr_text, candidates]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/IngestStatus'
+        ocr_text:
+          type: string
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/MistakeCandidate'
+        error_code:
+          $ref: '#/components/schemas/ErrorCode'
+          nullable: true
+
+    MistakeCreateRequest:
+      type: object
+      required: [subject_id, source_type, object_key, question, tags]
+      properties:
+        ingest_session_id:
+          type: string
+          format: uuid
+          nullable: true
+        subject_id:
+          type: integer
+        source_type:
+          $ref: '#/components/schemas/SourceType'
+        object_key:
+          type: string
+        preview_object_key:
+          type: string
+          nullable: true
+        ocr_text:
+          type: string
+          default: ""
+        question:
+          type: string
+        my_answer:
+          type: string
+          default: ""
+        correct_answer:
+          type: string
+          default: ""
+        analysis:
+          type: string
+          default: ""
+        question_type:
+          type: string
+          default: ""
+        difficulty:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+        error_cause:
+          type: string
+          default: ""
+        status:
+          $ref: '#/components/schemas/ItemStatus'
+        answer_status:
+          $ref: '#/components/schemas/AnswerStatus'
+        annotation:
+          type: string
+          default: ""
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagInput'
+
+    MistakeUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/MistakeCreateRequest'
+      description: Partial update in implementation; schema documents allowed fields.
+
+    MistakeListItem:
+      type: object
+      required: [id, subject_id, question_excerpt, answer_status, tags, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject_id:
+          type: integer
+        thumbnail_url:
+          type: string
+          format: uri
+          nullable: true
+        question_excerpt:
+          type: string
+          example: 已知二次函数...
+        answer_status:
+          $ref: '#/components/schemas/AnswerStatus'
+        status:
+          $ref: '#/components/schemas/ItemStatus'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        created_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    MistakeDetail:
+      allOf:
+        - $ref: '#/components/schemas/MistakeListItem'
+        - type: object
+          required: [object_key, ocr_text, question, my_answer, correct_answer, analysis]
+          properties:
+            object_key:
+              type: string
+            image_url:
+              type: string
+              format: uri
+              nullable: true
+            ocr_text:
+              type: string
+            question:
+              type: string
+            my_answer:
+              type: string
+            correct_answer:
+              type: string
+            analysis:
+              type: string
+            question_type:
+              type: string
+            difficulty:
+              type: integer
+              nullable: true
+            error_cause:
+              type: string
+            annotation:
+              type: string
+            last_viewed_at:
+              type: string
+              format: date-time
+              nullable: true
+
+    EmptyState:
+      type: object
+      required: [title, actions]
+      properties:
+        title:
+          type: string
+          example: 今天没有待复习错题
+        actions:
+          type: array
+          items:
+            type: object
+            required: [label, target]
+            properties:
+              label:
+                type: string
+              target:
+                type: string
+    MistakeListResponse:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MistakeListItem'
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        empty_state:
+          $ref: '#/components/schemas/EmptyState'
+          nullable: true
+
+    NoteCandidate:
+      type: object
+      required: [subject_id, content, knowledge_points]
+      properties:
+        subject_id:
+          type: integer
+        content:
+          type: string
+        knowledge_points:
+          type: array
+          items:
+            type: string
+        page_number:
+          type: integer
+          nullable: true
+    NoteIngestRequest:
+      type: object
+      required: [object_key, source_type, subject_id]
+      properties:
+        object_key:
+          type: string
+        source_type:
+          $ref: '#/components/schemas/SourceType'
+        subject_id:
+          type: integer
+    NoteIngestResponse:
+      type: object
+      required: [session_id, status, ocr_text, candidates]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/IngestStatus'
+        ocr_text:
+          type: string
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteCandidate'
+        error_code:
+          $ref: '#/components/schemas/ErrorCode'
+          nullable: true
+    NoteCreateRequest:
+      type: object
+      required: [subject_id, source_type, object_key, content, tags]
+      properties:
+        ingest_session_id:
+          type: string
+          format: uuid
+          nullable: true
+        subject_id:
+          type: integer
+        source_type:
+          $ref: '#/components/schemas/SourceType'
+        object_key:
+          type: string
+        preview_object_key:
+          type: string
+          nullable: true
+        ocr_text:
+          type: string
+          default: ""
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/ItemStatus'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagInput'
+    NoteUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/NoteCreateRequest'
+      description: Partial update in implementation; schema documents allowed fields.
+    NoteListItem:
+      type: object
+      required: [id, subject_id, content_excerpt, tags, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject_id:
+          type: integer
+        thumbnail_url:
+          type: string
+          format: uri
+          nullable: true
+        content_excerpt:
+          type: string
+        status:
+          $ref: '#/components/schemas/ItemStatus'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        created_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+    NoteDetail:
+      allOf:
+        - $ref: '#/components/schemas/NoteListItem'
+        - type: object
+          required: [object_key, ocr_text, content]
+          properties:
+            object_key:
+              type: string
+            file_url:
+              type: string
+              format: uri
+              nullable: true
+            ocr_text:
+              type: string
+            content:
+              type: string
+    NoteListResponse:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteListItem'
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer

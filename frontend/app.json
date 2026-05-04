@@ -1,0 +1,9 @@
+{
+  "pages": [
+    "pages/login/index",
+    "pages/home/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "错题助手"
+  }
+}
