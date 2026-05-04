@@ -22,3 +22,5 @@ def test_gitleaks_self_test_expects_detection_exit_code() -> None:
     assert "--exit-code 42" in workflow
     assert "status=$?" in workflow
     assert 'if [ "$status" -ne 42 ]; then' in workflow
+    assert '"AKIA" "Q3K7M9N2P5R8T1V6"' in workflow
+    assert "AKIAQ3K7M9N2P5R8T1V6" not in workflow

@@ -36,7 +36,7 @@ jobs:
       - name: gitleaks self-test fixture
         run: |
           fixture_dir="$(mktemp -d)"
-          echo "sk-testfixture000000000000000000000000" > "$fixture_dir/fake-secret.txt"
+          printf "AWS_ACCESS_KEY_ID=%s%s\n" "AKIA" "Q3K7M9N2P5R8T1V6" > "$fixture_dir/fake-secret.txt"
           set +e
           gitleaks detect --no-git --source "$fixture_dir" --redact --exit-code 42
           status=$?
