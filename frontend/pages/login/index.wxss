@@ -1,3 +1,10 @@
 .page {
   padding: 32rpx;
 }
+
+.error {
+  color: #c2410c;
+  font-size: 28rpx;
+  line-height: 1.5;
+  margin-top: 24rpx;
+}

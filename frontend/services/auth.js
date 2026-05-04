@@ -1,4 +1,4 @@
-const { API_BASE_URL } = require("./config");
+const { API_BASE_URL, API_FALLBACK_BASE_URLS } = require("./config");
 
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
@@ -27,9 +27,15 @@ function getRefreshToken() {
 }
 
 function loginWithWeChatCode(code) {
+  const baseUrls = [API_BASE_URL].concat(API_FALLBACK_BASE_URLS || []);
+  return requestLoginWithBases(code, baseUrls);
+}
+
+function requestLoginWithBases(code, baseUrls) {
+  const [baseUrl, ...rest] = baseUrls;
   return new Promise((resolve, reject) => {
     wx.request({
-      url: `${API_BASE_URL}/auth/wx-login`,
+      url: `${baseUrl}/auth/wx-login`,
       method: "POST",
       data: { code },
       success(response) {
@@ -38,11 +44,25 @@ function loginWithWeChatCode(code) {
           resolve(response.data);
           return;
         }
-        reject(response);
+        reject(new Error(errorMessageFromResponse(response)));
       },
-      fail: reject
+      fail(error) {
+        if (rest.length > 0) {
+          requestLoginWithBases(code, rest).then(resolve).catch(reject);
+          return;
+        }
+        reject(new Error(error.errMsg || "请求后端失败"));
+      }
     });
   });
+}
+
+function errorMessageFromResponse(response) {
+  const error = response && response.data && response.data.error;
+  if (error && error.message) {
+    return error.message;
+  }
+  return `登录失败 (${response.statusCode || "network"})`;
 }
 
 function refreshAccessToken() {

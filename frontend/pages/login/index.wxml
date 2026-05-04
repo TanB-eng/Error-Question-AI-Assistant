@@ -1,3 +1,6 @@
 <view class="page">
-  <button bindtap="onLogin">微信登录</button>
+  <button bindtap="onLogin" loading="{{loading}}" disabled="{{loading}}">
+    {{loading ? "登录中" : "微信登录"}}
+  </button>
+  <view wx:if="{{errorMessage}}" class="error">{{errorMessage}}</view>
 </view>
